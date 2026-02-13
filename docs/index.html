@@ -94,35 +94,51 @@
         // Create a new map instance
         let map = new maplibregl.Map({
             container: 'map', // container id
-            style: 'https://api.maptiler.com/maps/streets-v2/style.json?key=Cusoe5zmfmn26glFoeoe', // style URL
-            center: [-122.3321, 47.6062], // starting position [lng, lat]
+            style: 'https://api.maptiler.com/maps/dataviz-v4/style.json?key=MlAhLKRr06cWfIoZbbvT', // style URL
+            center: [-98.5795, 39.8283], // starting position [lng, lat]
             // pitch: 45, // pitch in degrees
-            zoom: 12 // starting zoom
+            zoom: 3 // starting zoom
         });
 
         // Fetch existing records when the window is loaded
         window.addEventListener("load", async function () {
-            let response = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/get-record', {
-                method: 'GET'
-            });
+            try {
+                let response = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/get-housings');
+                let data = await response.json(); // this should already be an array of approved housings
 
-            let data = await response.json();
-      
-            // Iterate through the fetched records and add them to the GeoJSON data object
-            for (let i = 0; i < data.rows.length; i++) {
-                geojson.features.push({
-                    'type': 'Feature',
-                    'properties': {
-                        'contributor': data.rows[i].contributor,
-                        'content': data.rows[i].content,
-                    },
-                    'geometry': {
-                        'type': 'Point',
-                        'coordinates': [data.rows[i].lng, data.rows[i].lat]
-                    }
+                // Iterate through each housing record
+                data.forEach(house => {
+                    // Add to geojson features
+                    geojson.features.push({
+                        'type': 'Feature',
+                        'properties': {
+                            'contributor': house.contributor,
+                            'title': house.title,
+                            'description': house.description,
+                            'price': house.price
+                        },
+                        'geometry': {
+                            'type': 'Point',
+                            'coordinates': [house.lng, house.lat]
+                        }
+                    });
+
+                    // Create a MapLibre marker for each house
+                    new maplibregl.Marker({ color: 'red' })
+                        .setLngLat([house.lng, house.lat])
+                        .setPopup(new maplibregl.Popup().setHTML(`
+                            <strong>${house.title}</strong><br>
+                            ${house.description}<br>
+                            Price: $${house.price}<br>
+                            Added by: ${house.contributor}
+                        `))
+                        .addTo(map);
                 });
+            } catch (err) {
+                console.error("Error fetching housing data:", err);
             }
         });
+
 
         // After the map loads, add the GeoJSON source and layer for existing points
         map.on("load", function () {
