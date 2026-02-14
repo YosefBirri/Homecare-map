@@ -6,13 +6,13 @@ const cors = require('cors');
 const app = express();
 
 // Define CORS options
-let corsOptions = {
-    origin: ['https://localhost', 'https://www.github.io', 'https://jakobzhao.github.io'],
-    optionsSuccessStatus: 200
-}
+//let corsOptions = {
+ //   origin: ['*'],
+ //   optionsSuccessStatus: 200,
+//}
 
 // Enable CORS for the application using the defined options
-app.use(cors(corsOptions));
+app.use(cors());
 
 // Enable parsing of URL-encoded data
 app.use(express.urlencoded({ extended: true }));

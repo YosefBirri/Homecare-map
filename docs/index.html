@@ -2,24 +2,15 @@
 <html>
 
 <head>
-    <title>A Minimum Viable Participatory Mapping Project</title>
+    <title>Homecare Participatory Housing Map</title>
+
     <script src="https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.js"></script>
     <link href="https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.css" rel="stylesheet" />
-    <!-- Styles for the map and popup -->
-    <style>
-        /* Basic CSS for the page */
-        body {
-            margin: 0;
-            padding: 0;
-        }
 
-        #map {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 100%;
-        }
-        
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+
         #info {
             position: absolute;
             top: 0;
@@ -32,216 +23,130 @@
             font-family: Arial, Helvetica, sans-serif;
             font-size: 12px;
             line-height: 1.5;
-            color: #000000;
             z-index: 1;
         }
-        
-        #popup {
-            padding: 10px;
-        }
 
-        #name {
-            width: 100%;
-            height: 20px;
-            margin-bottom: 10px;
-        }
-
-        #content {
-            width: 100%;
-            height: 45px;
-            margin-bottom: 10px;
-        }
-
-        #submit {
-            float: right;
-        }
+        #popup { padding: 10px; }
+        #name, #content { width: 100%; margin-bottom: 10px; }
+        #submit { float: right; }
     </style>
 </head>
 
 <body>
-    <!-- Map container -->
-    <div id="map"></div>
-    
-    <!-- Information box -->
-    <div id="info">
-        <h3>A Minimum Viable Participatory Mapping Project</h3>
-        <h4>Bo Zhao | University of Washington </h4>
-        <!-- Introduction to the participatory mapping solution -->
-        <p>
-            This map is a minimum viable solution to participatory mapping.
-            Users can contribute their local knowledge by clicking on the map,
-            submitting their information, and viewing it represented as a red dot.
-            Existing contributions can also be viewed as red dots. While this map only offers
-            basic functionality, it can be expanded or repurposed to build your own participatory mapping projects. To help you envision what this map can assist you, you can take a look at a few existing projects, such as <a href="https://hgis.uw.edu/lgbtqspaces/" target="_blank"><b>Shifting LGBTQ+ spaces</b></a>,
-            <a href="https://hgis.uw.edu/chop"> <b>Archiving the CHOP</b></a> and <a href="https://www.queeringthemap.com/" target="_blank"><b>Queering the Map</b></a>.
-            An instruction can be found 
-            <a href="https://www.github.com/jakobzhao/participatory-mapping" target="_blank">here</a>.
-            <i>Last update: June 23, 2023</i>
-        </p> 
-    </div>
-    
-    <!-- JavaScript code for the interactive map and data submission -->
-    <script>
-        // Variable to hold the popup instance
-        let popup = null;
-        
-        // GeoJSON data object to store the contributed points
-        let geojson = {
-            'type': 'FeatureCollection',
-            'features': []
-        };
-        
-        // Create a new map instance
-        let map = new maplibregl.Map({
-            container: 'map', // container id
-            style: 'https://api.maptiler.com/maps/dataviz-v4/style.json?key=MlAhLKRr06cWfIoZbbvT', // style URL
-            center: [-98.5795, 39.8283], // starting position [lng, lat]
-            // pitch: 45, // pitch in degrees
-            zoom: 3 // starting zoom
-        });
 
-        // Fetch existing records when the window is loaded
-        window.addEventListener("load", async function () {
-            try {
-                let response = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/get-housings');
-                let data = await response.json(); // this should already be an array of approved housings
+<div id="map"></div>
 
-                // Iterate through each housing record
-                data.forEach(house => {
-                    // Add to geojson features
-                    geojson.features.push({
-                        'type': 'Feature',
-                        'properties': {
-                            'contributor': house.contributor,
-                            'title': house.title,
-                            'description': house.description,
-                            'price': house.price
-                        },
-                        'geometry': {
-                            'type': 'Point',
-                            'coordinates': [house.lng, house.lat]
-                        }
-                    });
+<div id="info">
+    <h3>Homecare Housing Map</h3>
+    <p>
+        Click anywhere to add a housing entry.
+        Existing approved housings appear as markers.
+    </p>
+</div>
 
-                    // Create a MapLibre marker for each house
-                    new maplibregl.Marker({ color: 'red' })
-                        .setLngLat([house.lng, house.lat])
-                        .setPopup(new maplibregl.Popup().setHTML(`
-                            <strong>${house.title}</strong><br>
-                            ${house.description}<br>
-                            Price: $${house.price}<br>
-                            Added by: ${house.contributor}
-                        `))
-                        .addTo(map);
-                });
-            } catch (err) {
-                console.error("Error fetching housing data:", err);
-            }
-        });
+<script>
+
+let popup = null;
+
+// Create map
+let map = new maplibregl.Map({
+    container: 'map',
+    style: 'https://api.maptiler.com/maps/dataviz-v4/style.json?key=MlAhLKRr06cWfIoZbbvT',
+    center: [-98.5795, 39.8283],
+    zoom: 3
+});
 
 
-        // After the map loads, add the GeoJSON source and layer for existing points
-        map.on("load", function () {
-            map.addSource('places', {
-                'type': 'geojson',
-                'data': geojson
-            });
+// ===========================
+// LOAD HOUSING DATA
+// ===========================
+map.on("load", async function () {
 
-            map.addLayer({
-                'id': 'placesLayer',
-                'type': 'circle',
-                'source': 'places',
-                'paint': {
-                    'circle-radius': 6,
-                    'circle-color': '#B42222'
-                }
-            });
-        });
+    try {
+        let response = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/get-housings');
+        let data = await response.json();
 
-        // Show popup on mouse enter over an existing point
-        map.on('mouseenter', 'placesLayer', function (e) {
-            map.getCanvas().style.cursor = 'pointer';
+        data.forEach(house => {
 
-            var coordinates = e.features[0].geometry.coordinates;
-            var content = e.features[0].properties.content;
-            var contributor = e.features[0].properties.contributor;
-
-            popup = new maplibregl.Popup()
-                .setLngLat(coordinates)
-                .setHTML("<p><b>" + contributor + "</b> <i>said:</i> " + content + "</p>")
-                .addTo(map);
-        });
-
-        // Remove popup on mouse leave from an existing point
-        map.on('mouseleave', 'placesLayer', function () {
-            map.getCanvas().style.cursor = '';
-            popup.remove();
-        });
-
-        // Handle click event on the map to allow user contribution
-        map.on('click', function (e) {
-            if (popup) {
-                popup.remove();
-            }
-
-            // Create the HTML content for the contribution popup
-            const popupContent = '<div id="popup"><input type="text" id="name" placeholder="Input your name here..."><input type="text" id="content" placeholder="Input your message here..."><button id="submit">submit</button></div>';
-
-            // Create a new popup and set its content
-            popup = new maplibregl.Popup({ closeOnClick: false })
-                .setLngLat(e.lngLat)
-                .setHTML(popupContent)
+            new maplibregl.Marker({ color: 'red' })
+                .setLngLat([house.lng, house.lat])
+                .setPopup(new maplibregl.Popup().setHTML(`
+                    <strong>${house.title}</strong><br>
+                    ${house.description}<br>
+                    Price: $${house.price}<br>
+                    Added by: ${house.contributor}
+                `))
                 .addTo(map);
 
-            // Attach an event listener to the submit button to handle new record submission
-            document.getElementById('submit').addEventListener('click', submitNewRecord);
-            e.preventDefault();
         });
 
-        // Function to handle the submission of a new record
-        async function submitNewRecord() {
-            let contributor = document.getElementById('name').value;
-            let content = document.getElementById('content').value;
-            let lngLat = popup.getLngLat();
+    } catch (err) {
+        console.error("Error fetching housing data:", err);
+    }
+});
 
-            // Create a new URLSearchParams object and append the data to it
-            let newRecord = new URLSearchParams();
-            newRecord.append('contributor', contributor);
-            newRecord.append('content', content);
-            newRecord.append('lng', lngLat.lng);
-            newRecord.append('lat', lngLat.lat);
 
-            // Set the POST request settings
-            let settings = {
-                method: 'POST',
-                body: newRecord
-            }
+// ===========================
+// CLICK TO ADD NEW RECORD
+// ===========================
+map.on('click', function (e) {
 
-            try {
-                // Send the POST request to add the new record
-                await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/add-record', settings);
-            } catch (err) {
-                // Handle any errors that occur during the request
-                console.error(err);
-            } finally {
-                // Remove the popup and update the GeoJSON data with the new point
-                popup.remove();
-                geojson.features.push({
-                    'type': 'Feature',
-                    'properties': {
-                        'contributor': contributor,
-                        'content': content,
-                    },
-                    'geometry': {
-                        'type': 'Point',
-                        'coordinates': [lngLat.lng, lngLat.lat]
-                    }
-                });
-                map.getSource('places').setData(geojson);
-            }
-        }
-    </script>
+    if (popup) popup.remove();
+
+    const popupContent = `
+        <div id="popup">
+            <input type="text" id="name" placeholder="Your name"><br>
+            <input type="text" id="content" placeholder="Description"><br>
+            <button id="submit">Submit</button>
+        </div>
+    `;
+
+    popup = new maplibregl.Popup({ closeOnClick: false })
+        .setLngLat(e.lngLat)
+        .setHTML(popupContent)
+        .addTo(map);
+
+    document.getElementById('submit').addEventListener('click', submitNewRecord);
+});
+
+
+// ===========================
+// SUBMIT NEW RECORD TO API
+// ===========================
+async function submitNewRecord() {
+
+    let contributor = document.getElementById('name').value;
+    let content = document.getElementById('content').value;
+    let lngLat = popup.getLngLat();
+
+    let newRecord = new URLSearchParams();
+    newRecord.append('contributor', contributor);
+    newRecord.append('content', content);
+    newRecord.append('lng', lngLat.lng);
+    newRecord.append('lat', lngLat.lat);
+
+    try {
+        await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/add-record', {
+            method: 'POST',
+            body: newRecord
+        });
+
+        // Add marker immediately after submit
+        new maplibregl.Marker({ color: 'orange' })
+            .setLngLat([lngLat.lng, lngLat.lat])
+            .setPopup(new maplibregl.Popup().setHTML(`
+                <strong>${contributor}</strong><br>${content}
+            `))
+            .addTo(map);
+
+    } catch (err) {
+        console.error(err);
+    } finally {
+        popup.remove();
+    }
+}
+
+</script>
 
 </body>
-
 </html>
