@@ -60,7 +60,7 @@ exports.approveRecord = async (req, res) => {
 exports.getHousings = async (req, res) => {
     try {
         const result = await db.query(
-            'SELECT * FROM "tblHousing" WHERE approved = true ORDER BY created_at DESC'
+            'SELECT * FROM "tblHousing" ORDER BY created_at DESC'
         );
         res.json(result.rows);
     } catch (err) {
@@ -71,32 +71,17 @@ exports.getHousings = async (req, res) => {
 
 // Add new housing post
 exports.addHousing = async (req, res) => {
-    const { contributor, title, description, lat, long, price } = req.body;
+    const { contributor, title, description, lat, lng, price } = req.body;
     try {
         const result = await db.query(
-            `INSERT INTO "tblHousing" (contributor, title, description, lat, lng, price)
+            `INSERT INTO "tblHousing" (contributer, title, description, lat, lng, price, created_at)
              VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-            [contributor, title, description, lat, long, price]
+            [contributer, title, description, lat, lng, price]
         );
         res.json(result.rows[0]);
     } catch (err) {
         console.error(err);
         res.status(500).send("Error adding housing post");
-    }
-};
-
-// Approve housing post
-exports.approveHousing = async (req, res) => {
-    const { id } = req.params;
-    try {
-        const result = await db.query(
-            'UPDATE "tblHousing" SET approved = true WHERE id = $1 RETURNING *',
-            [id]
-        );
-        res.json(result.rows[0]);
-    } catch (err) {
-        console.error(err);
-        res.status(500).send("Error approving housing post");
     }
 };
 
