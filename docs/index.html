@@ -3,7 +3,6 @@
 
 <head>
     <title>Homecare Participatory Housing Map</title>
-
     <script src="https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.js"></script>
     <link href="https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.css" rel="stylesheet" />
 
@@ -26,26 +25,20 @@
             z-index: 1;
         }
 
-        #popup { padding: 10px; }
-        #name, #content { width: 100%; margin-bottom: 10px; }
-        #submit { float: right; }
+        #popup input { width: 100%; margin-bottom: 5px; }
+        #popup button { float: right; }
     </style>
 </head>
 
 <body>
-
 <div id="map"></div>
 
 <div id="info">
     <h3>Homecare Housing Map</h3>
-    <p>
-        Click anywhere to add a housing entry.
-        Existing approved housings appear as markers.
-    </p>
+    <p>Click anywhere to add a housing entry.</p>
 </div>
 
 <script>
-
 let popup = null;
 
 // Create map
@@ -56,18 +49,15 @@ let map = new maplibregl.Map({
     zoom: 3
 });
 
-
 // ===========================
 // LOAD HOUSING DATA
 // ===========================
 map.on("load", async function () {
-
     try {
         let response = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/get-housings');
         let data = await response.json();
 
         data.forEach(house => {
-
             new maplibregl.Marker({ color: 'red' })
                 .setLngLat([house.lng, house.lat])
                 .setPopup(new maplibregl.Popup().setHTML(`
@@ -77,26 +67,24 @@ map.on("load", async function () {
                     Added by: ${house.contributor}
                 `))
                 .addTo(map);
-
         });
-
     } catch (err) {
         console.error("Error fetching housing data:", err);
     }
 });
 
-
 // ===========================
-// CLICK TO ADD NEW RECORD
+// CLICK TO ADD NEW HOUSING
 // ===========================
 map.on('click', function (e) {
-
     if (popup) popup.remove();
 
     const popupContent = `
         <div id="popup">
-            <input type="text" id="name" placeholder="Your name"><br>
-            <input type="text" id="content" placeholder="Description"><br>
+            <input type="text" id="contributor" placeholder="Your name">
+            <input type="text" id="title" placeholder="Title">
+            <input type="text" id="description" placeholder="Description">
+            <input type="number" id="price" placeholder="Price">
             <button id="submit">Submit</button>
         </div>
     `;
@@ -106,46 +94,54 @@ map.on('click', function (e) {
         .setHTML(popupContent)
         .addTo(map);
 
-    document.getElementById('submit').addEventListener('click', submitNewRecord);
+    document.getElementById('submit').addEventListener('click', submitNewHousing);
 });
 
-
 // ===========================
-// SUBMIT NEW RECORD TO API
+// SUBMIT NEW HOUSING TO API
 // ===========================
-async function submitNewRecord() {
+async function submitNewHousing() {
+    const contributor = document.getElementById('contributor').value;
+    const title = document.getElementById('title').value;
+    const description = document.getElementById('description').value;
+    const price = parseFloat(document.getElementById('price').value);
+    const lngLat = popup.getLngLat();
 
-    let contributor = document.getElementById('name').value;
-    let content = document.getElementById('content').value;
-    let lngLat = popup.getLngLat();
-
-    let newRecord = new URLSearchParams();
-    newRecord.append('contributor', contributor);
-    newRecord.append('content', content);
-    newRecord.append('lng', lngLat.lng);
-    newRecord.append('lat', lngLat.lat);
+    const payload = {
+        contributor,
+        title,
+        description,
+        price,
+        lat: lngLat.lat,
+        lng: lngLat.lng
+    };
 
     try {
-        await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/add-record', {
+        const response = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/add-housing', {
             method: 'POST',
-            body: newRecord
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
         });
 
-        // Add marker immediately after submit
+        const newHouse = await response.json();
+
+        // Add marker immediately
         new maplibregl.Marker({ color: 'orange' })
-            .setLngLat([lngLat.lng, lngLat.lat])
+            .setLngLat([newHouse.lng, newHouse.lat])
             .setPopup(new maplibregl.Popup().setHTML(`
-                <strong>${contributor}</strong><br>${content}
+                <strong>${newHouse.title}</strong><br>
+                ${newHouse.description}<br>
+                Price: $${newHouse.price}<br>
+                Added by: ${newHouse.contributor}
             `))
             .addTo(map);
 
     } catch (err) {
-        console.error(err);
+        console.error("Error adding new housing:", err);
     } finally {
         popup.remove();
     }
 }
-
 </script>
 
 </body>

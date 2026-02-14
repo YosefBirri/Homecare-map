@@ -1,35 +1,43 @@
 // Import required modules
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 // Create an Express application
 const app = express();
 
-// Define CORS options
-//let corsOptions = {
- //   origin: ['*'],
- //   optionsSuccessStatus: 200,
-//}
+// -----------------------
+// Enable CORS for all origins
+// -----------------------
+app.use(cors()); // During development, allows requests from anywhere
 
-// Enable CORS for the application using the defined options
-app.use(cors());
+// -----------------------
+// Parse incoming requests
+// -----------------------
+app.use(express.json());                 // JSON body
+app.use(express.urlencoded({ extended: true })); // URL-encoded forms
 
-// Enable parsing of URL-encoded data
-app.use(express.urlencoded({ extended: true }));
+// -----------------------
+// Import routes
+// -----------------------
+const indexRoute = require('./routes/index');            // your /api test route
+const productRoutes = require('./routes/product.routes'); // housing, jobs, records
 
-// Enable parsing of JSON data with specific content type
-app.use(express.json({ type: 'application/vnd.api+json' }));
+// -----------------------
+// Mount routes
+// -----------------------
+app.use('/', indexRoute);           // GET /api test
+app.use('/api', productRoutes);    // All /api/* routes for housing/jobs
 
-// Mount the index route
-const index = require('./routes/index');
-app.use(index);
+// -----------------------
+// Serve static files (optional frontend folder)
+// -----------------------
+app.use(express.static(path.join(__dirname, 'docs'))); // or 'public' if you rename folder
 
-// Mount the userRoute for API routes starting with '/api/'
-const userRoute = require('./routes/product.routes');
-app.use('/api/', userRoute);
+// -----------------------
+// Start server (for local dev; Heroku uses Procfile)
+// -----------------------
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
-// Serve static files from the 'docs' directory for the root path
-app.use('/', express.static('docs'))
-
-// Export the app module
 module.exports = app;
