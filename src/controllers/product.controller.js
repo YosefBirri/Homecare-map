@@ -28,9 +28,6 @@ exports.addRecord = async (req, res) => {
 
 // ===== HOUSING =====
 
-// Get all housings
-const db = require("../config/database");
-
 // --------------------------
 // GET ALL HOUSINGS
 // --------------------------

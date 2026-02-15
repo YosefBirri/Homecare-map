@@ -6,10 +6,15 @@ const path = require('path');
 // Create an Express application
 const app = express();
 
-// -----------------------
-// Enable CORS for all origins
-// -----------------------
-app.use(cors()); // During development, allows requests from anywhere
+app.use(cors({
+    origin: '*',
+    methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+    allowedHeaders: ['Content-Type','Authorization']
+}));
+
+// handle preflight
+app.options('*', cors());
+
 
 // -----------------------
 // Parse incoming requests
