@@ -1,9 +1,7 @@
-// Import required modules
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
-// Create an Express application
 const app = express();
 
 app.use(cors({
@@ -12,37 +10,20 @@ app.use(cors({
     allowedHeaders: ['Content-Type','Authorization']
 }));
 
-// handle preflight
 app.options('*', cors());
 
-
-// -----------------------
 // Parse incoming requests
-// -----------------------
-app.use(express.json());                 // JSON body
-app.use(express.urlencoded({ extended: true })); // URL-encoded forms
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// -----------------------
-// Import routes
-// -----------------------
-const indexRoute = require('./routes/index');            // your /api test route
-const productRoutes = require('./routes/product.routes'); // housing, jobs, records
+// Routes
+const indexRoute = require('./routes/index');
+const productRoutes = require('./routes/product.routes');
 
-// -----------------------
-// Mount routes
-// -----------------------
-app.use('/', indexRoute);           // GET /api test
-app.use('/api', productRoutes);    // All /api/* routes for housing/jobs
+app.use('/', indexRoute);
+app.use('/api', productRoutes);
 
-// -----------------------
-// Serve static files (optional frontend folder)
-// -----------------------
-app.use(express.static(path.join(__dirname, 'docs'))); // or 'public' if you rename folder
-
-// -----------------------
-// Start server (for local dev; Heroku uses Procfile)
-// -----------------------
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Static frontend
+app.use(express.static(path.join(__dirname, 'docs')));
 
 module.exports = app;
