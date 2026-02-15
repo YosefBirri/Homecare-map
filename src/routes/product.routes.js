@@ -1,7 +1,6 @@
-// Import the required module
-const router = require('express-promise-router')();
+const express = require('express');
+const router = express.Router();
 
-// Import the productController module
 const productController = require('../controllers/product.controller');
 
 // -----------------------
@@ -22,5 +21,4 @@ router.post('/add-housing', productController.addHousing);
 router.get('/get-jobs', productController.getJobs);
 router.post('/add-job', productController.addJob);
 
-// Export the router module
 module.exports = router;

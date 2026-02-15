@@ -4,26 +4,27 @@ const path = require('path');
 
 const app = express();
 
-app.use(cors({
-    origin: '*',
-    methods: ['GET','POST','PUT','DELETE','OPTIONS'],
-    allowedHeaders: ['Content-Type','Authorization']
-}));
-
-app.options('*', cors());
+// Allow requests from anywhere (for testing)
+app.use(cors());
 
 // Parse incoming requests
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
+// API routes
 const indexRoute = require('./routes/index');
 const productRoutes = require('./routes/product.routes');
 
 app.use('/', indexRoute);
 app.use('/api', productRoutes);
 
-// Static frontend
-app.use(express.static(path.join(__dirname, 'docs')));
+// 🔴 IMPORTANT: serve frontend from ROOT project folder
+// This assumes index.html is in the main repo folder
+app.use(express.static(path.join(__dirname, '..')));
+
+// Fallback so refreshing the page still works
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'index.html'));
+});
 
 module.exports = app;

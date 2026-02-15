@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <title>Homecare Participatory Housing Map</title>
+
     <script src="https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.js"></script>
     <link href="https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.css" rel="stylesheet" />
 
@@ -41,42 +41,49 @@
 <script>
 let popup = null;
 
-// Create map
-let map = new maplibregl.Map({
+// CREATE MAP
+const map = new maplibregl.Map({
     container: 'map',
     style: 'https://api.maptiler.com/maps/dataviz-v4/style.json?key=MlAhLKRr06cWfIoZbbvT',
     center: [-98.5795, 39.8283],
     zoom: 3
 });
 
+
 // ===========================
 // LOAD HOUSING DATA
 // ===========================
-map.on("load", async function () {
+map.on("load", async () => {
     try {
-        let response = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/get-housings');
-        let data = await response.json();
+        const response = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/get-housings');
+
+        if (!response.ok) throw new Error("Server error");
+
+        const data = await response.json();
 
         data.forEach(house => {
             new maplibregl.Marker({ color: 'red' })
                 .setLngLat([house.lng, house.lat])
                 .setPopup(new maplibregl.Popup().setHTML(`
-                    <strong>${house.title}</strong><br>
-                    ${house.description}<br>
-                    Price: $${house.price}<br>
-                    Added by: ${house.contributor}
+                    <strong>${house.title || ""}</strong><br>
+                    ${house.description || ""}<br>
+                    Price: $${house.price || ""}<br>
+                    Added by: ${house.contributor || ""}
                 `))
                 .addTo(map);
         });
+
     } catch (err) {
         console.error("Error fetching housing data:", err);
     }
 });
 
+
 // ===========================
 // CLICK TO ADD NEW HOUSING
 // ===========================
-map.on('click', function (e) {
+map.on('click', (e) => {
+
     if (popup) popup.remove();
 
     const popupContent = `
@@ -85,7 +92,7 @@ map.on('click', function (e) {
             <input type="text" id="title" placeholder="Title">
             <input type="text" id="description" placeholder="Description">
             <input type="number" id="price" placeholder="Price">
-            <button id="submit">Submit</button>
+            <button id="submitBtn">Submit</button>
         </div>
     `;
 
@@ -94,13 +101,21 @@ map.on('click', function (e) {
         .setHTML(popupContent)
         .addTo(map);
 
-    document.getElementById('submit').addEventListener('click', submitNewHousing);
+    // Wait a tick so DOM exists before attaching event
+    setTimeout(() => {
+        const btn = document.getElementById('submitBtn');
+        if (btn) btn.addEventListener('click', submitNewHousing);
+    }, 50);
 });
+
 
 // ===========================
 // SUBMIT NEW HOUSING TO API
 // ===========================
 async function submitNewHousing() {
+
+    if (!popup) return;
+
     const contributor = document.getElementById('contributor').value;
     const title = document.getElementById('title').value;
     const description = document.getElementById('description').value;
@@ -123,24 +138,31 @@ async function submitNewHousing() {
             body: JSON.stringify(payload)
         });
 
-        const newHouse = await response.json();
+        const result = await response.json();
+
+        if (!response.ok) {
+            console.error("Server rejected entry:", result);
+            alert("Failed to save housing entry.");
+            return;
+        }
 
         // Add marker immediately
         new maplibregl.Marker({ color: 'orange' })
-            .setLngLat([newHouse.lng, newHouse.lat])
+            .setLngLat([result.lng, result.lat])
             .setPopup(new maplibregl.Popup().setHTML(`
-                <strong>${newHouse.title}</strong><br>
-                ${newHouse.description}<br>
-                Price: $${newHouse.price}<br>
-                Added by: ${newHouse.contributor}
+                <strong>${result.title}</strong><br>
+                ${result.description}<br>
+                Price: $${result.price}<br>
+                Added by: ${result.contributor}
             `))
             .addTo(map);
 
     } catch (err) {
         console.error("Error adding new housing:", err);
-    } finally {
-        popup.remove();
+        alert("Could not connect to server.");
     }
+
+    popup.remove();
 }
 </script>
 
