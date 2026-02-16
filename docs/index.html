@@ -12,34 +12,105 @@
 
         #info {
             position: absolute;
-            top: 0;
-            left: 0;
+            top: 10px;
+            left: 10px;
             width: 350px;
-            margin: 10px;
             padding: 10px;
-            background-color: #ffffff;
+            background: white;
             border-radius: 5px;
-            font-family: Arial, Helvetica, sans-serif;
-            font-size: 12px;
-            line-height: 1.5;
+            font-family: Arial, sans-serif;
+            font-size: 13px;
             z-index: 1;
         }
 
-        #popup input { width: 100%; margin-bottom: 5px; }
-        #popup button { float: right; }
+        #info button {
+            margin-top: 6px;
+            padding: 6px 10px;
+            background-color: #6b3fd6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #info button:hover { background-color: #4b26a0; }
+
+        .maplibregl-popup-content {
+            font-family: Arial, Helvetica, sans-serif;
+            padding: 16px 18px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            min-width: 240px;
+            font-size: 13px;
+        }
+
+        .maplibregl-popup-content strong {
+            font-size: 16px;
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .popup-price {
+            color: #6b3fd6;
+            font-weight: bold;
+            margin-top: 6px;
+        }
+
+        .popup-author {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 6px;
+        }
+
+        .housing-marker {
+            background-image: url('../img/home.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            transition: transform 0.2s ease, filter 0.2s ease;
+        }
+
+        .housing-marker:hover {
+            transform: scale(1.3);
+            filter: drop-shadow(0 0 6px rgba(107,63,214,0.7));
+        }
+
+        #popup input {
+            width: 100%;
+            margin-bottom: 6px;
+            padding: 6px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        #popup button {
+            float: right;
+            padding: 6px 12px;
+            background-color: #6b3fd6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #popup button:hover { background-color: #4b26a0; }
     </style>
 </head>
-
 <body>
 <div id="map"></div>
 
 <div id="info">
     <h3>Homecare Housing Map</h3>
-    <p>Click anywhere to add a housing entry.</p>
+    <p>Click on the map to add housing at your location.</p>
+    <button id="addByAddressBtn">Add Housing by Address</button>
 </div>
 
 <script>
 let popup = null;
+let openMarkerPopup = null;
+
+// Format price with commas
+function formatPrice(num) { return num ? num.toLocaleString() : ''; }
 
 // CREATE MAP
 const map = new maplibregl.Map({
@@ -49,87 +120,130 @@ const map = new maplibregl.Map({
     zoom: 3
 });
 
+// ===========================
+// CREATE MARKER FUNCTION
+// ===========================
+function createMarker(data, showPopup=false) {
+    const el = document.createElement('div');
+    el.className = 'housing-marker';
+
+    const markerPopup = new maplibregl.Popup({ offset: 25 }).setHTML(`
+        <strong>${data.title || "Housing"}</strong>
+        <div>${data.description || ""}</div>
+        <div class="popup-price">$${formatPrice(data.price)}</div>
+        <div class="popup-author">Added by ${data.contributor || "Unknown"}</div>
+    `);
+
+    el.addEventListener('click', e => {
+        e.stopPropagation();
+        // Close previously open popup
+        if(openMarkerPopup && openMarkerPopup !== markerPopup) openMarkerPopup.remove();
+        // Toggle this popup
+        if(markerPopup.isOpen()) markerPopup.remove();
+        else markerPopup.addTo(map);
+        openMarkerPopup = markerPopup.isOpen() ? markerPopup : null;
+    });
+
+    new maplibregl.Marker({ element: el })
+        .setLngLat([data.lng, data.lat])
+        .setPopup(markerPopup)
+        .addTo(map);
+
+    if(showPopup) {
+        // Close old popup first
+        if(openMarkerPopup) openMarkerPopup.remove();
+        markerPopup.addTo(map);
+        openMarkerPopup = markerPopup;
+        map.flyTo({ center: [data.lng, data.lat], zoom: 10 });
+    }
+}
 
 // ===========================
-// LOAD HOUSING DATA
+// LOAD EXISTING HOUSING
 // ===========================
 map.on("load", async () => {
     try {
         const response = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/get-housings');
-
         if (!response.ok) throw new Error("Server error");
-
         const data = await response.json();
-
-        data.forEach(house => {
-            new maplibregl.Marker({ color: 'red' })
-                .setLngLat([house.lng, house.lat])
-                .setPopup(new maplibregl.Popup().setHTML(`
-                    <strong>${house.title || ""}</strong><br>
-                    ${house.description || ""}<br>
-                    Price: $${house.price || ""}<br>
-                    Added by: ${house.contributor || ""}
-                `))
-                .addTo(map);
-        });
-
+        data.forEach(house => createMarker(house));
     } catch (err) {
         console.error("Error fetching housing data:", err);
     }
 });
 
-
 // ===========================
-// CLICK TO ADD NEW HOUSING
+// QUICK ADD HOUSING (by map click)
 // ===========================
-map.on('click', (e) => {
+map.on('click', async e => {
+    if(popup) popup.remove();
+    if(e.originalEvent.target.closest('.housing-marker')) return;
 
-    if (popup) popup.remove();
+    const lat = e.lngLat.lat;
+    const lng = e.lngLat.lng;
 
-    const popupContent = `
+    const content = `
         <div id="popup">
-            <input type="text" id="contributor" placeholder="Your name">
-            <input type="text" id="title" placeholder="Title">
+            <input type="text" id="contributor" placeholder="Your Name">
+            <input type="text" id="title" placeholder="Homecare Name">
             <input type="text" id="description" placeholder="Description">
             <input type="number" id="price" placeholder="Price">
-            <button id="submitBtn">Submit</button>
+            <button id="submitBtn">Add Housing</button>
         </div>
     `;
 
     popup = new maplibregl.Popup({ closeOnClick: false })
-        .setLngLat(e.lngLat)
-        .setHTML(popupContent)
+        .setLngLat([lng, lat])
+        .setHTML(content)
         .addTo(map);
 
-    // Wait a tick so DOM exists before attaching event
     setTimeout(() => {
-        const btn = document.getElementById('submitBtn');
-        if (btn) btn.addEventListener('click', submitNewHousing);
+        document.getElementById('submitBtn').addEventListener('click', () => submitHousing(lat, lng));
     }, 50);
 });
 
+// ===========================
+// ADD HOUSING BY ADDRESS
+// ===========================
+document.getElementById('addByAddressBtn').addEventListener('click', () => {
+    if(popup) popup.remove();
+
+    const content = `
+        <div id="popup">
+            <input type="text" id="contributor" placeholder="Your Name">
+            <input type="text" id="title" placeholder="Homecare Name">
+            <input type="text" id="description" placeholder="Description">
+            <input type="number" id="price" placeholder="Price">
+            <input type="text" id="address" placeholder="Street Address">
+            <input type="text" id="city" placeholder="City">
+            <input type="text" id="state" placeholder="State">
+            <input type="text" id="zip" placeholder="Zip Code">
+            <button id="submitBtn">Add Housing</button>
+        </div>
+    `;
+
+    popup = new maplibregl.Popup({ closeOnClick: false })
+        .setLngLat(map.getCenter())
+        .setHTML(content)
+        .addTo(map);
+
+    setTimeout(() => {
+        document.getElementById('submitBtn').addEventListener('click', submitHousingByAddress);
+    }, 50);
+});
 
 // ===========================
-// SUBMIT NEW HOUSING TO API
+// SUBMIT HOUSING (quick add)
 // ===========================
-async function submitNewHousing() {
-
-    if (!popup) return;
+async function submitHousing(lat, lng) {
+    if(!popup) return;
 
     const contributor = document.getElementById('contributor').value;
     const title = document.getElementById('title').value;
     const description = document.getElementById('description').value;
     const price = parseFloat(document.getElementById('price').value);
-    const lngLat = popup.getLngLat();
 
-    const payload = {
-        contributor,
-        title,
-        description,
-        price,
-        lat: lngLat.lat,
-        lng: lngLat.lng
-    };
+    const payload = { contributor, title, description, price, lat, lng };
 
     try {
         const response = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/add-housing', {
@@ -139,32 +253,58 @@ async function submitNewHousing() {
         });
 
         const result = await response.json();
+        if (!response.ok) { alert("Failed to add housing"); return; }
 
-        if (!response.ok) {
-            console.error("Server rejected entry:", result);
-            alert("Failed to save housing entry.");
-            return;
-        }
-
-        // Add marker immediately
-        new maplibregl.Marker({ color: 'orange' })
-            .setLngLat([result.lng, result.lat])
-            .setPopup(new maplibregl.Popup().setHTML(`
-                <strong>${result.title}</strong><br>
-                ${result.description}<br>
-                Price: $${result.price}<br>
-                Added by: ${result.contributor}
-            `))
-            .addTo(map);
-
+        createMarker(result, true);
     } catch (err) {
-        console.error("Error adding new housing:", err);
-        alert("Could not connect to server.");
+        console.error(err); alert("Could not connect to server.");
+    }
+
+    popup.remove();
+}
+
+// ===========================
+// SUBMIT HOUSING BY ADDRESS
+// ===========================
+async function submitHousingByAddress() {
+    if(!popup) return;
+
+    const contributor = document.getElementById('contributor').value;
+    const title = document.getElementById('title').value;
+    const description = document.getElementById('description').value;
+    const price = parseFloat(document.getElementById('price').value);
+    const address = document.getElementById('address').value;
+    const city = document.getElementById('city').value;
+    const state = document.getElementById('state').value;
+    const zip = document.getElementById('zip').value;
+
+    const fullAddress = `${address}, ${city}, ${state} ${zip}`;
+    const key = 'MlAhLKRr06cWfIoZbbvT';
+
+    try {
+        const geoRes = await fetch(`https://api.maptiler.com/geocoding/${encodeURIComponent(fullAddress)}.json?key=${key}`);
+        const geoData = await geoRes.json();
+        if(!geoData.features || geoData.features.length === 0){ alert("Address not found."); return; }
+
+        const [lng, lat] = geoData.features[0].geometry.coordinates;
+        const payload = { contributor, title, description, price, address, city, state, zip, lat, lng };
+
+        const response = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/add-housing', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        if(!response.ok){ alert("Failed to add housing."); return; }
+
+        createMarker(result, true);
+    } catch(err) {
+        console.error(err); alert("Could not connect or geocode address.");
     }
 
     popup.remove();
 }
 </script>
-
 </body>
 </html>
