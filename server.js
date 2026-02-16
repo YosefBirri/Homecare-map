@@ -5,7 +5,7 @@ require('dotenv').config();
 const app = require('./src/app');
 
 // Use the Heroku-assigned port, fallback for local dev
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Start server
 app.listen(PORT, () => {
