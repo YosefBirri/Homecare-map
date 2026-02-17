@@ -78,20 +78,44 @@ const getJobs = async (req, res) => {
 const addJob = async (req, res) => {
     const { contributor, title, description, lat, lng, expected_pay, hours } = req.body;
 
+    console.log("Incoming job payload:", req.body);
+
+    // Validate required fields
+    if (!title || !lat || !lng) {
+        return res.status(400).json({ error: "Missing required fields" });
+    }
+
     try {
         const result = await db.query(
             `INSERT INTO "tblJobs"
-            (contributor,title,description,lat,lng,expected_pay,hours,created_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,NOW()) RETURNING *`,
-            [contributor, title, description, lat, lng, expected_pay, hours]
+            (contributor, title, description, lat, lng, expected_pay, hours, created_at)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())
+            RETURNING *`,
+            [
+                contributor || "Anonymous",
+                title,
+                description || "",
+                parseFloat(lat),
+                parseFloat(lng),
+                expected_pay || 0,
+                hours || 0
+            ]
         );
 
-        res.json(result.rows[0]);
+        res.status(200).json(result.rows[0]);
+
     } catch (err) {
-        console.error(err);
-        res.status(500).send("Error adding job");
+        console.error("DB JOB INSERT ERROR:", err);
+
+        // ALWAYS return JSON, never plain text
+        res.status(500).json({
+            error: "Database insert failed",
+            detail: err.message
+        });
     }
 };
+
+
 
 module.exports = {
     getRecord,

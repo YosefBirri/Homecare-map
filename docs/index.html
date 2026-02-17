@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Homecare Participatory Housing Map</title>
+    <title>Homecare & Jobs Map</title>
 
     <script src="https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.js"></script>
     <link href="https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.css" rel="stylesheet" />
@@ -14,7 +14,7 @@
             position: absolute;
             top: 10px;
             left: 10px;
-            width: 350px;
+            width: 360px;
             padding: 10px;
             background: white;
             border-radius: 5px;
@@ -61,8 +61,7 @@
             margin-top: 6px;
         }
 
-        .housing-marker {
-            background-image: url('../img/home.png');
+        .housing-marker, .job-marker {
             background-size: contain;
             background-repeat: no-repeat;
             width: 40px;
@@ -71,7 +70,7 @@
             transition: transform 0.2s ease, filter 0.2s ease;
         }
 
-        .housing-marker:hover {
+        .housing-marker:hover, .job-marker:hover {
             transform: scale(1.3);
             filter: drop-shadow(0 0 6px rgba(107,63,214,0.7));
         }
@@ -94,25 +93,41 @@
             cursor: pointer;
         }
         #popup button:hover { background-color: #4b26a0; }
+
+        #layerSwitcher {
+            margin-top: 8px;
+        }
+        #layerSwitcher label {
+            margin-right: 10px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
+
 <div id="map"></div>
 
 <div id="info">
-    <h3>Homecare Housing Map</h3>
-    <p>Click on the map to add housing at your location.</p>
+    <h3>Homecare & Jobs Map</h3>
+    <div id="layerSwitcher">
+        <label><input type="radio" name="layerSwitch" value="housing" checked> Homecares</label>
+        <label><input type="radio" name="layerSwitch" value="jobs"> Jobs</label>
+    </div>
+    <p>Click on the map to add a new entry at your location.</p>
     <button id="addByAddressBtn">Add Housing by Address</button>
 </div>
 
 <script>
 let popup = null;
 let openMarkerPopup = null;
+let activeLayer = 'housing';
+let housingMarkers = [];
+let jobMarkers = [];
 
-// Format price with commas
-function formatPrice(num) { return num ? num.toLocaleString() : ''; }
+// Format price
+function formatPrice(num){ return num ? num.toLocaleString() : ''; }
 
-// CREATE MAP
+// Create Map
 const map = new maplibregl.Map({
     container: 'map',
     style: 'https://api.maptiler.com/maps/dataviz-v4/style.json?key=MlAhLKRr06cWfIoZbbvT',
@@ -120,94 +135,143 @@ const map = new maplibregl.Map({
     zoom: 3
 });
 
-// ===========================
-// CREATE MARKER FUNCTION
-// ===========================
-function createMarker(data, showPopup=false) {
+// ======= CREATE MARKER =======
+function createMarker(data, type='housing', showPopup=false){
     const el = document.createElement('div');
-    el.className = 'housing-marker';
+    el.className = type==='housing'?'housing-marker':'job-marker';
+    el.style.backgroundImage = type==='housing'?"url('../img/home.png')":"url('../img/job.png')";
 
-    const markerPopup = new maplibregl.Popup({ offset: 25 }).setHTML(`
-        <strong>${data.title || "Housing"}</strong>
-        <div>${data.description || ""}</div>
+    const markerPopup = new maplibregl.Popup({ offset:25 }).setHTML(
+        type==='housing' ?
+        `<strong>${data.title||"Housing"}</strong>
+        <div>${data.description||""}</div>
         <div class="popup-price">$${formatPrice(data.price)}</div>
-        <div class="popup-author">Added by ${data.contributor || "Unknown"}</div>
-    `);
+        <div class="popup-author">Added by ${data.contributor||"Unknown"}</div>` :
+        `<strong>${data.title||"Job"}</strong>
+        <div>${data.description||""}</div>
+        <div class="popup-price">Pay: $${formatPrice(data.expected_pay||0)}</div>
+        <div class="popup-author">By ${data.contributor||"Unknown"}</div>
+        <div>Hours: ${data.hours||"N/A"}</div>`
+    );
 
-    el.addEventListener('click', e => {
+    el.addEventListener('click', e=>{
         e.stopPropagation();
-        // Close previously open popup
-        if(openMarkerPopup && openMarkerPopup !== markerPopup) openMarkerPopup.remove();
-        // Toggle this popup
+        if(openMarkerPopup && openMarkerPopup!==markerPopup) openMarkerPopup.remove();
         if(markerPopup.isOpen()) markerPopup.remove();
         else markerPopup.addTo(map);
         openMarkerPopup = markerPopup.isOpen() ? markerPopup : null;
     });
 
-    new maplibregl.Marker({ element: el })
-        .setLngLat([data.lng, data.lat])
+    const marker = new maplibregl.Marker({ element:el })
+        .setLngLat([data.lng,data.lat])
         .setPopup(markerPopup)
         .addTo(map);
 
-    if(showPopup) {
-        // Close old popup first
+    if(showPopup){
         if(openMarkerPopup) openMarkerPopup.remove();
         markerPopup.addTo(map);
         openMarkerPopup = markerPopup;
-        map.flyTo({ center: [data.lng, data.lat], zoom: 10 });
+        map.flyTo({center:[data.lng,data.lat], zoom:10});
+    }
+
+    return marker;
+}
+
+// ======= REMOVE MARKERS =======
+function removeMarkers(arr){
+    arr.forEach(m=>m.remove());
+    arr.length = 0;
+}
+
+// ======= LOAD LAYER =======
+async function loadLayer(layer){
+    try{
+        if(layer==='housing'){
+            const res = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/get-housings');
+            if(!res.ok) throw new Error("Server error");
+            const data = await res.json();
+            data.forEach(h=>{
+                const m = createMarker(h,'housing');
+                housingMarkers.push(m);
+            });
+        } else if(layer==='jobs'){
+            const res = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/get-jobs');
+            if(!res.ok) throw new Error("Server error");
+            const data = await res.json();
+            data.forEach(j=>{
+                const m = createMarker(j,'job');
+                jobMarkers.push(m);
+            });
+        }
+    } catch(err){
+        console.error(err);
+        alert(`Error loading ${layer} layer: ${err}`);
     }
 }
 
-// ===========================
-// LOAD EXISTING HOUSING
-// ===========================
-map.on("load", async () => {
-    try {
-        const response = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/get-housings');
-        if (!response.ok) throw new Error("Server error");
-        const data = await response.json();
-        data.forEach(house => createMarker(house));
-    } catch (err) {
-        console.error("Error fetching housing data:", err);
-    }
+// ======= INITIAL LOAD =======
+map.on('load', ()=> loadLayer('housing'));
+
+// ======= SWITCHER =======
+document.querySelectorAll('input[name="layerSwitch"]').forEach(radio=>{
+    radio.addEventListener('change', e=>{
+        const newLayer = e.target.value;
+        if(newLayer === activeLayer) return;
+
+        // Remove old layer markers
+        if(activeLayer==='housing') removeMarkers(housingMarkers);
+        if(activeLayer==='jobs') removeMarkers(jobMarkers);
+
+        activeLayer = newLayer;
+
+        loadLayer(activeLayer);
+
+        // Show add by address only for housing
+        document.getElementById('addByAddressBtn').style.display = activeLayer==='housing'?'inline-block':'none';
+    });
 });
 
-// ===========================
-// QUICK ADD HOUSING (by map click)
-// ===========================
-map.on('click', async e => {
+// ======= QUICK ADD ENTRY =======
+map.on('click', async e=>{
     if(popup) popup.remove();
-    if(e.originalEvent.target.closest('.housing-marker')) return;
+    if(e.originalEvent.target.closest('.housing-marker') || e.originalEvent.target.closest('.job-marker')) return;
 
     const lat = e.lngLat.lat;
     const lng = e.lngLat.lng;
 
-    const content = `
-        <div id="popup">
+    let content;
+    if(activeLayer==='housing'){
+        content = `<div id="popup">
             <input type="text" id="contributor" placeholder="Your Name">
             <input type="text" id="title" placeholder="Homecare Name">
             <input type="text" id="description" placeholder="Description">
             <input type="number" id="price" placeholder="Price">
             <button id="submitBtn">Add Housing</button>
-        </div>
-    `;
+        </div>`;
+    } else {
+        content = `<div id="popup">
+            <input type="text" id="contributor" placeholder="Your Name">
+            <input type="text" id="title" placeholder="Job Title">
+            <input type="text" id="description" placeholder="Description">
+            <input type="number" id="expected_pay" placeholder="Expected Pay">
+            <input type="text" id="hours" placeholder="Hours">
+            <button id="submitBtn">Add Job</button>
+        </div>`;
+    }
 
-    popup = new maplibregl.Popup({ closeOnClick: false })
-        .setLngLat([lng, lat])
-        .setHTML(content)
-        .addTo(map);
+    popup = new maplibregl.Popup({ closeOnClick:false }).setLngLat([lng,lat]).setHTML(content).addTo(map);
 
-    setTimeout(() => {
-        document.getElementById('submitBtn').addEventListener('click', () => submitHousing(lat, lng));
-    }, 50);
+    setTimeout(()=>{
+        document.getElementById('submitBtn').addEventListener('click', ()=>{
+            if(activeLayer==='housing') submitHousing(lat,lng);
+            else submitJob(lat,lng);
+        });
+    },50);
 });
 
-// ===========================
-// ADD HOUSING BY ADDRESS
-// ===========================
-document.getElementById('addByAddressBtn').addEventListener('click', () => {
+// ======= ADD BY ADDRESS BUTTON =======
+document.getElementById('addByAddressBtn').addEventListener('click', ()=>{
     if(popup) popup.remove();
-
     const content = `
         <div id="popup">
             <input type="text" id="contributor" placeholder="Your Name">
@@ -221,54 +285,39 @@ document.getElementById('addByAddressBtn').addEventListener('click', () => {
             <button id="submitBtn">Add Housing</button>
         </div>
     `;
+    popup = new maplibregl.Popup({ closeOnClick:false }).setLngLat(map.getCenter()).setHTML(content).addTo(map);
 
-    popup = new maplibregl.Popup({ closeOnClick: false })
-        .setLngLat(map.getCenter())
-        .setHTML(content)
-        .addTo(map);
-
-    setTimeout(() => {
-        document.getElementById('submitBtn').addEventListener('click', submitHousingByAddress);
-    }, 50);
+    setTimeout(()=> document.getElementById('submitBtn').addEventListener('click', submitHousingByAddress),50);
 });
 
-// ===========================
-// SUBMIT HOUSING (quick add)
-// ===========================
-async function submitHousing(lat, lng) {
+// ======= SUBMIT HOUSING =======
+async function submitHousing(lat,lng){
     if(!popup) return;
-
     const contributor = document.getElementById('contributor').value;
     const title = document.getElementById('title').value;
     const description = document.getElementById('description').value;
     const price = parseFloat(document.getElementById('price').value);
 
     const payload = { contributor, title, description, price, lat, lng };
-
-    try {
-        const response = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/add-housing', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+    try{
+        const res = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/add-housing',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify(payload)
         });
-
-        const result = await response.json();
-        if (!response.ok) { alert("Failed to add housing"); return; }
-
-        createMarker(result, true);
-    } catch (err) {
+        const result = await res.json();
+        if(!res.ok){ alert("Failed to add housing"); return; }
+        const marker = createMarker(result,'housing',true);
+        housingMarkers.push(marker);
+    }catch(err){
         console.error(err); alert("Could not connect to server.");
     }
-
     popup.remove();
 }
 
-// ===========================
-// SUBMIT HOUSING BY ADDRESS
-// ===========================
-async function submitHousingByAddress() {
+// ======= SUBMIT HOUSING BY ADDRESS =======
+async function submitHousingByAddress(){
     if(!popup) return;
-
     const contributor = document.getElementById('contributor').value;
     const title = document.getElementById('title').value;
     const description = document.getElementById('description').value;
@@ -281,30 +330,68 @@ async function submitHousingByAddress() {
     const fullAddress = `${address}, ${city}, ${state} ${zip}`;
     const key = 'MlAhLKRr06cWfIoZbbvT';
 
-    try {
+    try{
         const geoRes = await fetch(`https://api.maptiler.com/geocoding/${encodeURIComponent(fullAddress)}.json?key=${key}`);
         const geoData = await geoRes.json();
-        if(!geoData.features || geoData.features.length === 0){ alert("Address not found."); return; }
+        if(!geoData.features || geoData.features.length===0){ alert("Address not found"); return; }
 
-        const [lng, lat] = geoData.features[0].geometry.coordinates;
+        const [lng,lat] = geoData.features[0].geometry.coordinates;
         const payload = { contributor, title, description, price, address, city, state, zip, lat, lng };
 
-        const response = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/add-housing', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+        const res = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/add-housing',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if(!res.ok){ alert("Failed to add housing"); return; }
+
+        const marker = createMarker(result,'housing',true);
+        housingMarkers.push(marker);
+
+    }catch(err){ console.error(err); alert("Could not connect or geocode address."); }
+    popup.remove();
+}
+
+// ======= SUBMIT JOB =======
+async function submitJob(lat, lng) {
+    if(!popup) return;
+
+    const contributor = document.getElementById('contributor').value;
+    const title = document.getElementById('title').value;
+    const description = document.getElementById('description').value;
+    const expected_pay = parseFloat(document.getElementById('expected_pay').value);
+    const hours = document.getElementById('hours').value;
+
+    const payload = { contributor, title, description, lat, lng, expected_pay, hours };
+
+    try{
+        const res = await fetch('https://homecareapp-5258d509b4b7.herokuapp.com/api/add-job',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify(payload)
         });
 
-        const result = await response.json();
-        if(!response.ok){ alert("Failed to add housing."); return; }
+        const result = await res.json();
 
-        createMarker(result, true);
-    } catch(err) {
-        console.error(err); alert("Could not connect or geocode address.");
+        if(!res.ok){
+            alert(result.error || "Failed to add job");
+            return;
+        }
+
+        const marker = createMarker(result,'job',true);
+        jobMarkers.push(marker);
+
+    }catch(err){
+        console.error(err);
+        alert("Could not connect to server.");
     }
 
     popup.remove();
 }
+
+
+
 </script>
 </body>
 </html>
