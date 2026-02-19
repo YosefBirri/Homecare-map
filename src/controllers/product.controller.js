@@ -1,35 +1,6 @@
 const db = require("../config/database");
 
-// =======================
-// RECORDS
-// =======================
-const getRecord = async (req, res) => {
-    try {
-        const response = await db.query('SELECT * FROM "tblRecord" ORDER BY id ASC');
-        res.status(200).json(response.rows);
-    } catch (err) {
-        console.error(err);
-        res.status(500).send("Error fetching records");
-    }
-};
-
-const addRecord = async (req, res) => {
-    const { contributor, content, lat, lng } = req.body;
-    try {
-        const result = await db.query(
-            'INSERT INTO "tblRecord"(contributor, content, lat, lng) VALUES ($1,$2,$3,$4) RETURNING *',
-            [contributor, content, lat, lng]
-        );
-        res.status(200).json(result.rows[0]);
-    } catch (err) {
-        console.error(err);
-        res.status(500).send("Error adding record");
-    }
-};
-
-// =======================
 // HOUSING
-// =======================
 const getHousings = async (req, res) => {
     try {
         const result = await db.query(
@@ -80,8 +51,8 @@ const addJob = async (req, res) => {
 
     console.log("Incoming job payload:", req.body);
 
-    // Validate required fields
-    if (!title || !lat || !lng) {
+    // required fields
+    if (!title) {
         return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -105,9 +76,8 @@ const addJob = async (req, res) => {
         res.status(200).json(result.rows[0]);
 
     } catch (err) {
-        console.error("DB JOB INSERT ERROR:", err);
+        console.error("JOB INSERT ERROR:", err);
 
-        // ALWAYS return JSON, never plain text
         res.status(500).json({
             error: "Database insert failed",
             detail: err.message
@@ -118,8 +88,6 @@ const addJob = async (req, res) => {
 
 
 module.exports = {
-    getRecord,
-    addRecord,
     getHousings,
     addHousing,
     getJobs,

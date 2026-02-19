@@ -1,30 +1,33 @@
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 
+// Create an Express application
 const app = express();
 
-// Allow requests from anywhere (for testing)
-app.use(cors());
+// Define CORS options
+let corsOptions = {
+    origin: ['https://localhost', 'https://www.github.io', 'https://jakobzhao.github.io'],
+    optionsSuccessStatus: 200
+}
 
-// Parse incoming requests
-app.use(express.json());
+// Enable CORS for the application using the defined options
+app.use(cors(corsOptions));
+
+// Enable parsing of URL-encoded data
 app.use(express.urlencoded({ extended: true }));
 
-// API routes
-const indexRoute = require('./routes/index');
-const productRoutes = require('./routes/product.routes');
+// Enable parsing of JSON data with specific content type
+app.use(express.json({ type: 'application/vnd.api+json' }));
 
-app.use('/', indexRoute);
-app.use('/api', productRoutes);
+// Mount the index route
+const index = require('./routes/index');
+app.use('/', index);
 
-// 🔴 IMPORTANT: serve frontend from ROOT project folder
-// This assumes index.html is in the main repo folder
-app.use(express.static(path.join(__dirname, '..')));
+// Mount the userRoute for API routes starting with '/api/'
+const userRoute = require('./routes/product.routes');
+app.use('/api', userRoute);
 
-// Fallback so refreshing the page still works
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'index.html'));
-});
+// Serve static files from the 'docs' directory for the root path
+app.use('/', express.static('docs'))
 
 module.exports = app;
