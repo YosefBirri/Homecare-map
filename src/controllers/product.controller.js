@@ -32,9 +32,7 @@ const addHousing = async (req, res) => {
     }
 };
 
-// =======================
 // JOBS
-// =======================
 const getJobs = async (req, res) => {
     try {
         const result = await db.query(
@@ -85,8 +83,6 @@ const addJob = async (req, res) => {
         });
     }
 };
-
-
 
 module.exports = {
     getHousings,
