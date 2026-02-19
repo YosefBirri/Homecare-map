@@ -4,22 +4,15 @@ const cors = require('cors');
 // Create an Express application
 const app = express();
 
-// Define CORS options
-let corsOptions = {
-    origin: ['https://localhost', 'https://www.github.io', 'https://jakobzhao.github.io'],
-    optionsSuccessStatus: 200
-}
+// Enable all CORS for the application
+app.use(cors);
 
-// Enable CORS for the application using the defined options
-app.use(cors(corsOptions));
-
-// Enable parsing of URL-encoded data
+// parse regular JSON
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
-// Enable parsing of JSON data with specific content type
-app.use(express.json({ type: 'application/vnd.api+json' }));
 
-// Mount the index route
+// Routes
 const index = require('./routes/index');
 app.use('/', index);
 
@@ -27,7 +20,7 @@ app.use('/', index);
 const userRoute = require('./routes/product.routes');
 app.use('/api', userRoute);
 
-// Serve static files from the 'docs' directory for the root path
-app.use('/', express.static('docs'))
+app.use(express.static('docs'));
+app.use('/img', express.static('img'));
 
 module.exports = app;
