@@ -8,9 +8,8 @@ const app = express();
 app.use(cors);
 
 // parse regular JSON
-app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-
+app.use(express.urlencoded({ extended: true }));
 
 // Routes
 const index = require('./routes/index');
