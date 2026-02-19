@@ -14,7 +14,7 @@ The app lets users:
 
 ### Housing Layer
 
-![img/housing_view]("housing view")
+![housing view](img/housing_view.png)
 
 * Displays housing markers
 * Shows title, description, price, contributor
@@ -25,7 +25,7 @@ The app lets users:
 
 ### Jobs Layer
 
-![img/jobs_view]("jobs_view")
+![jobs_view](img/jobs_view.png)
 
 * Displays job markers
 * Shows job title, description, pay, hours, contributor
