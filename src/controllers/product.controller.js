@@ -14,7 +14,8 @@ const getHousings = async (req, res) => {
 };
 
 const addHousing = async (req, res) => {
-    const { contributor, title, description, lat, lng, price } = req.body;
+    const contributorSafe = req.body.contributor || "Anonymous";
+    const { title, description, lat, lng, price } = req.body;
 
     try {
         const result = await db.query(

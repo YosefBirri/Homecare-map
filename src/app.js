@@ -5,21 +5,22 @@ const cors = require('cors');
 const app = express();
 
 // Enable all CORS for the application
-app.use(cors);
+app.use(cors());
 
 // parse regular JSON
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
-const index = require('./routes/index');
-app.use('/', index);
-
 // Mount the userRoute for API routes starting with '/api/'
 const userRoute = require('./routes/product.routes');
 app.use('/api', userRoute);
 
-app.use(express.static('docs'));
 app.use('/img', express.static('img'));
+
+app.use(express.static('docs'));
+
+// Routes
+const index = require('./routes/index');
+app.use('/', index);
 
 module.exports = app;
