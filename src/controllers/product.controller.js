@@ -22,7 +22,7 @@ const addHousing = async (req, res) => {
             `INSERT INTO "tblHousing"
             (contributor,title,description,lat,lng,price,created_at)
             VALUES ($1,$2,$3,$4,$5,$6,NOW()) RETURNING *`,
-            [contributor, title, description, lat, lng, price]
+            [contributorSafe, title, description, lat, lng, price]
         );
 
         res.json(result.rows[0]);
@@ -54,7 +54,7 @@ const addJob = async (req, res) => {
 
     // required fields
     if (!title) {
-        return res.status(400).json({ error: "Missing required fields" });
+        return res.status(400).json({ error: "Title required" });
     }
 
     try {
